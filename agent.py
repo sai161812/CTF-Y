@@ -14,12 +14,12 @@ import argparse
 import json
 import textwrap
 import sys
-import httpx
 from pathlib import Path
 from typing import Any
 
 import config
 from classifier import classify
+from providers import call_llm, current_provider_info
 from tools.flag import extract_flag, extract_all_flags, score_output
 
 # ── Module imports ─────────────────────────────────────────────────────────────
@@ -204,27 +204,11 @@ RULES:
 - Be specific in your thought — explain exactly what you observed and why you chose this action"""
 
 
-def call_claude(messages: list[dict]) -> dict:
-    """Call Claude API and parse the JSON response."""
-    resp = httpx.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": config.ANTHROPIC_API_KEY,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        },
-        json={
-            "model": config.MODEL,
-            "max_tokens": config.MAX_TOKENS,
-            "system": AGENT_SYSTEM,
-            "messages": messages,
-        },
-        timeout=60,
-    )
-    resp.raise_for_status()
-    text = resp.json()["content"][0]["text"].strip()
+def call_llm_json(user_content: str) -> dict:
+    """Call the configured LLM and parse JSON from the response."""
+    text = call_llm(AGENT_SYSTEM, user_content)
 
-    # Strip markdown fences
+    # Strip markdown fences if model wrapped output in ```json ... ```
     if text.startswith("```"):
         lines = text.split("\n")
         text = "\n".join(lines[1:])
@@ -304,9 +288,12 @@ def solve(description: str, url: str = None, files: list[str] = None,
           "history": list
         }
     """
+    pinfo = current_provider_info()
     print("\n" + "═" * 60)
     print("  🚩 CTF SOLVER AGENT")
     print("═" * 60)
+    print(f"  Provider:  {pinfo['provider'].upper()}  ({pinfo['model']})")
+    print(f"  API key:   {'✓ set' if pinfo['key_set'] else '✗ MISSING — set env var'}")
     print(f"  Challenge: {textwrap.shorten(description, 80)}")
     if url:
         print(f"  URL: {url}")
@@ -353,11 +340,10 @@ def solve(description: str, url: str = None, files: list[str] = None,
 
         # Build context message
         user_content = build_context(challenge, history, last_output)
-        messages = [{"role": "user", "content": user_content}]
 
-        # Ask Claude what to do
+        # Ask LLM what to do
         try:
-            decision = call_claude(messages)
+            decision = call_llm_json(user_content)
         except Exception as e:
             print(f"    ⚠️  Claude API error: {e}")
             break

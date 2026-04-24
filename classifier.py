@@ -1,12 +1,12 @@
 """
 classifier.py
 -------------
-Uses Claude to classify a CTF challenge and suggest an initial attack plan.
+Uses the configured LLM provider to classify a CTF challenge
+and return a structured attack plan.
 """
 
 import json
-import httpx
-from config import ANTHROPIC_API_KEY, MODEL, MAX_TOKENS
+from providers import call_llm
 
 SYSTEM_PROMPT = """You are an expert CTF (Capture The Flag) solver with deep knowledge of:
 - Web exploitation (SQLi, LFI, SSTI, SSRF, XSS, JWT attacks, IDOR, path traversal)
@@ -32,52 +32,34 @@ ALWAYS respond with ONLY valid JSON in this exact format:
 def classify(challenge_description: str, files: list[str] = None,
              url: str = None) -> dict:
     """
-    Classify a CTF challenge using Claude.
-    
+    Classify a CTF challenge using the configured LLM provider.
+
     Args:
         challenge_description: The challenge text/description
         files: List of file paths attached to challenge
-        url: Target URL if it's a web challenge
-    
+        url:   Target URL if it's a web challenge
+
     Returns:
         Classification dict with category, steps, and tools
     """
     context_parts = [f"CHALLENGE DESCRIPTION:\n{challenge_description}"]
-
     if url:
         context_parts.append(f"TARGET URL: {url}")
-
     if files:
         context_parts.append(f"ATTACHED FILES: {', '.join(files)}")
 
     user_msg = "\n\n".join(context_parts)
 
     try:
-        resp = httpx.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": MODEL,
-                "max_tokens": MAX_TOKENS,
-                "system": SYSTEM_PROMPT,
-                "messages": [{"role": "user", "content": user_msg}],
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        text = resp.json()["content"][0]["text"].strip()
+        text = call_llm(SYSTEM_PROMPT, user_msg)
 
-        # Strip markdown fences if present
+        # Strip markdown fences if model wrapped output in ```json ... ```
         if text.startswith("```"):
             text = "\n".join(text.split("\n")[1:])
             if text.endswith("```"):
                 text = text[:-3]
 
-        return json.loads(text)
+        return json.loads(text.strip())
 
     except json.JSONDecodeError as e:
         return {
