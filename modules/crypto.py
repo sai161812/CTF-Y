@@ -1,10 +1,3 @@
-"""
-modules/crypto.py
------------------
-Comprehensive crypto solver for CTF challenges.
-Covers: encodings, classical ciphers, XOR, RSA attacks, misc transforms.
-"""
-
 import base64
 import binascii
 import string
