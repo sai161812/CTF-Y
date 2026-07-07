@@ -9,8 +9,24 @@ Usage:
     export CTF_PROVIDER=gemini      GEMINI_API_KEY=AIza...
 """
 
+import time
 import httpx
 import config
+
+
+def _post_with_retry(url, *, headers=None, json=None, max_retries=5, timeout=60):
+    """POST with exponential backoff on 429 rate limit."""
+    for attempt in range(max_retries):
+        resp = httpx.post(url, headers=headers, json=json, timeout=timeout)
+        if resp.status_code == 429:
+            wait = 2 ** attempt          # 1s, 2s, 4s, 8s, 16s
+            print(f"    ⏳ Rate limited — waiting {wait}s (attempt {attempt+1}/{max_retries})...")
+            time.sleep(wait)
+            continue
+        resp.raise_for_status()
+        return resp
+    resp.raise_for_status()
+    return resp
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -21,7 +37,7 @@ def _call_anthropic(system: str, user: str) -> str:
     if not config.ANTHROPIC_API_KEY:
         raise ValueError("ANTHROPIC_API_KEY is not set. Export it or edit config.py.")
 
-    resp = httpx.post(
+    resp = _post_with_retry(
         "https://api.anthropic.com/v1/messages",
         headers={
             "x-api-key": config.ANTHROPIC_API_KEY,
@@ -34,7 +50,6 @@ def _call_anthropic(system: str, user: str) -> str:
             "system": system,
             "messages": [{"role": "user", "content": user}],
         },
-        timeout=60,
     )
     resp.raise_for_status()
     return resp.json()["content"][0]["text"].strip()
@@ -61,7 +76,7 @@ def _call_gemini(system: str, user: str) -> str:
         f"{config.GEMINI_MODEL}:generateContent?key={config.GEMINI_API_KEY}"
     )
 
-    resp = httpx.post(
+    resp = _post_with_retry(
         url,
         headers={"content-type": "application/json"},
         json={
@@ -71,7 +86,6 @@ def _call_gemini(system: str, user: str) -> str:
                 "temperature": 0.2,
             },
         },
-        timeout=60,
     )
     resp.raise_for_status()
 

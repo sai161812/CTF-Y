@@ -14,7 +14,7 @@ ANTHROPIC_MODEL   = "claude-sonnet-4-20250514"
 
 # ── Google Gemini ─────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL   = "gemini-1.5-pro"                   # or "gemini-1.5-flash" for speed
+GEMINI_MODEL   = "gemini-2.0-flash"              # fast + free tier available
 
 MAX_TOKENS = 4096
 
