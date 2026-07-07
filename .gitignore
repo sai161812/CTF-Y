@@ -3,5 +3,3 @@ venv
 .env
 .pyc
 
-
-config.py
