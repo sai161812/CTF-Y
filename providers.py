@@ -20,7 +20,7 @@ def _post_with_retry(url, *, headers=None, json=None, max_retries=5, timeout=60)
         resp = httpx.post(url, headers=headers, json=json, timeout=timeout)
         if resp.status_code == 429:
             wait = 2 ** attempt          # 1s, 2s, 4s, 8s, 16s
-            print(f"    ⏳ Rate limited — waiting {wait}s (attempt {attempt+1}/{max_retries})...")
+            print(f"    [*] Rate limited — waiting {wait}s (attempt {attempt+1}/{max_retries})...")
             time.sleep(wait)
             continue
         resp.raise_for_status()

@@ -290,10 +290,10 @@ def solve(description: str, url: str = None, files: list[str] = None,
     """
     pinfo = current_provider_info()
     print("\n" + "═" * 60)
-    print("  🚩 CTF SOLVER AGENT")
+    print("  [!] CTF SOLVER AGENT")
     print("═" * 60)
     print(f"  Provider:  {pinfo['provider'].upper()}  ({pinfo['model']})")
-    print(f"  API key:   {'✓ set' if pinfo['key_set'] else '✗ MISSING — set env var'}")
+    print(f"  API key:   {'[OK] set' if pinfo['key_set'] else '[X] MISSING — set env var'}")
     print(f"  Challenge: {textwrap.shorten(description, 80)}")
     if url:
         print(f"  URL: {url}")
@@ -326,7 +326,7 @@ def solve(description: str, url: str = None, files: list[str] = None,
     # Quick-check: if classifier spotted the flag already
     for guess in classification.get("flags_to_try", []):
         if extract_flag(guess):
-            print(f"\n✅ FLAG FOUND IN DESCRIPTION: {guess}")
+            print(f"\n[+] FLAG FOUND IN DESCRIPTION: {guess}")
             return {"flag": guess, "steps": [], "history": []}
 
     # ── Step 3: Reasoning loop ────────────────────────────────────────────────
@@ -345,7 +345,7 @@ def solve(description: str, url: str = None, files: list[str] = None,
         try:
             decision = call_llm_json(user_content)
         except Exception as e:
-            print(f"    ⚠️  Claude API error: {e}")
+            print(f"    [!] Claude API error: {e}")
             break
 
         action = decision.get("action", "done")
@@ -354,16 +354,16 @@ def solve(description: str, url: str = None, files: list[str] = None,
         done = decision.get("done", False)
         found_flag = decision.get("flag")
 
-        print(f"    💭 {textwrap.shorten(thought, 100)}")
-        print(f"    🔧 Action: {action}({', '.join(str(a) for a in args)})")
+        print(f"    [?] {textwrap.shorten(thought, 100)}")
+        print(f"    [*] Action: {action}({', '.join(str(a) for a in args)})")
 
         # Done?
         if done or action == "done":
             flag = found_flag
             if flag:
-                print(f"\n✅ FLAG FOUND: {flag}")
+                print(f"\n[+] FLAG FOUND: {flag}")
             else:
-                print("\n⚠️  Agent gave up — no flag found.")
+                print("\n[-] Agent gave up — no flag found.")
             break
 
         # Execute tool
@@ -374,7 +374,7 @@ def solve(description: str, url: str = None, files: list[str] = None,
         flags_in_output = extract_all_flags(result_str)
         if flags_in_output:
             flag = flags_in_output[0]
-            print(f"\n✅ FLAG FOUND IN OUTPUT: {flag}")
+            print(f"\n[+] FLAG FOUND IN OUTPUT: {flag}")
             history.append({
                 "action": action,
                 "args": args,
@@ -385,7 +385,7 @@ def solve(description: str, url: str = None, files: list[str] = None,
         # Score and log
         score = score_output(result_str)
         preview = result_str[:120].replace("\n", " ")
-        print(f"    📤 Output (score={score}): {preview}...")
+        print(f"    [>] Output (score={score}): {preview}...")
 
         history.append({
             "action": action,
@@ -397,9 +397,9 @@ def solve(description: str, url: str = None, files: list[str] = None,
     # ── Summary ───────────────────────────────────────────────────────────────
     print("\n" + "═" * 60)
     if flag:
-        print(f"  🏆 FINAL FLAG: {flag}")
+        print(f"  [*] FINAL FLAG: {flag}")
     else:
-        print("  ❌ No flag found. Review the step history for clues.")
+        print("  [-] No flag found. Review the step history for clues.")
     print(f"  Steps taken: {len(history)}")
     print("═" * 60 + "\n")
 
@@ -416,7 +416,7 @@ def solve(description: str, url: str = None, files: list[str] = None,
 # ──────────────────────────────────────────────────────────────────────────────
 
 def interactive_mode():
-    print("\n🚩 CTF Solver — Interactive Mode")
+    print("\n[!] CTF Solver — Interactive Mode")
     print("─" * 40)
     description = input("Challenge description: ").strip()
     url = input("Target URL (leave blank if none): ").strip() or None
