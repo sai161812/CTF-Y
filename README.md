@@ -1,123 +1,105 @@
-# 🚩 CTF Solver Agent
+# CTF-Y
 
-AI-powered end-to-end CTF solver. Claude or Gemini as the brain.
+**An experimental LLM-assisted toolkit for Capture The Flag challenges.**
 
----
+CTF-Y connects Claude or Gemini to Python tools for web challenges, cryptography, and digital forensics. It classifies a challenge, selects tools, and feeds their output back into a bounded reasoning loop.
 
-## 1. Install
+The project explores how model-guided tool selection can assist CTF investigation. It is a prototype; tool coverage is not a measured solve rate.
+
+## How it works
+
+1. `classifier.py` proposes a category and initial steps.
+2. `agent.py` builds context from the challenge, recent actions, and tool output.
+3. The model returns a JSON tool selection; `execute_tool()` dispatches a registered function.
+4. Output is checked for candidate flags and passed into the next iteration.
+5. The loop stops on a candidate flag, a model stop decision, an API failure, or `MAX_STEPS`.
+
+| Component | Implementation |
+| --- | --- |
+| Classification and orchestration | [classifier.py](classifier.py), [agent.py](agent.py) |
+| Claude/Gemini requests and rate-limit retries | [providers.py](providers.py) |
+| Encoding and cryptography helpers | [modules/crypto.py](modules/crypto.py) |
+| File, image, audio, and capture analysis | [modules/forensics.py](modules/forensics.py) |
+| HTTP reconnaissance and web challenge helpers | [modules/web.py](modules/web.py) |
+| Candidate-flag extraction and scoring | [tools/flag.py](tools/flag.py) |
+| External command execution | [tools/runner.py](tools/runner.py) |
+
+## Setup
+
+The commands below target a Linux environment. Some forensic operations require separately installed command-line tools.
 
 ```bash
+git clone https://github.com/sai161812/CTF-Y.git
+cd CTF-Y
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-
-# Optional CLI tools (recommended for forensics)
-sudo apt install binwalk steghide exiftool tshark fcrackzip sox
-gem install zsteg      # Ruby gem for PNG stego
 ```
 
----
+Install the optional tools needed for your challenges:
 
-## 2. Pick your AI provider
+```bash
+sudo apt install binwalk steghide exiftool tshark fcrackzip sox
+gem install zsteg
+```
 
-### Option A — Anthropic Claude (default)
+Choose a provider and supply its API key through the environment:
+
 ```bash
 export CTF_PROVIDER=anthropic
-export ANTHROPIC_API_KEY="sk-ant-..."
+export ANTHROPIC_API_KEY="your-api-key"
+# Alternatively:
+# export CTF_PROVIDER=gemini
+# export GEMINI_API_KEY="your-api-key"
 ```
 
-### Option B — Google Gemini
-```bash
-export CTF_PROVIDER=gemini
-export GEMINI_API_KEY="AIza..."
-```
+Model identifiers, step limits, timeouts, and flag patterns are configured in [config.py](config.py). Check that the configured model is available to your provider account before running. Provider access and usage costs depend on your account.
 
-You can also hardcode the choice in `config.py`:
-```python
-PROVIDER      = "gemini"          # "anthropic" | "gemini"
-GEMINI_MODEL  = "gemini-1.5-pro"  # or "gemini-1.5-flash" for speed
-```
-
----
-
-## 3. Configure flag formats
-
-Open `config.py` and edit `FLAG_PATTERNS`. Each entry is a Python regex.
-The list is checked top-to-bottom; first match wins.
-
-```python
-FLAG_PATTERNS = [
-    # Already included:
-    r'picoCTF\{[^}]+\}',
-    r'HTB\{[^}]+\}',
-    r'DUCTF\{[^}]+\}',
-    # ...
-
-    # Add yours:
-    r'MYCTF\{[^}]+\}',
-    r'n00bz\{[^}]+\}',
-    r'ACSC\{[^}]+\}',
-]
-```
-
-Generic catch-all at the bottom covers unknown prefixes:
-```
-r'[A-Z0-9_]{2,12}\{[A-Za-z0-9_\-!@#$%^&*()+= ]{4,100}\}'
-```
-If you get false positives remove it, or tighten the length bounds.
-
----
-
-## 4. Run
+## Run
 
 ```bash
-# Interactive mode
+# Interactive prompts
 python agent.py
 
-# One-shot
-python agent.py --desc "Decode this: aGVsbG8="
-python agent.py --desc "Login bypass, find the flag" --url http://target.ctf/login
-python agent.py --desc "Flag hidden in image"        --file challenge.png
-python agent.py --desc "..." --url http://... --category web   # force category
+# A challenge description and local file
+python agent.py --desc "Find the flag in this challenge image" --file challenge.png
+
+# A web challenge hosted in your own local lab
+python agent.py --desc "Find the flag in my local lab" --url http://127.0.0.1:8000 --category web
 ```
 
-### Programmatic
+Python API:
+
 ```python
 from agent import solve
 
 result = solve(
-    description="Login bypass - find the admin flag",
-    url="http://challenge.ctf/login",
-    category="web",
+    description="Find the flag in this challenge image",
+    files=["challenge.png"],
+    category="forensics",
 )
-print(result["flag"])
+print(result["flag"])  # Candidate flag; verify with the challenge platform.
 ```
 
----
+## Execution boundaries
 
-## 5. File layout
+Use only with CTF targets and labs you are authorized to test. The agent can make network requests and invoke local tools; the subprocess wrapper is not a sandbox.
 
-```
-ctf-agent/
-├── agent.py          ← main reasoning loop
-├── classifier.py     ← challenge classifier (LLM-powered)
-├── providers.py      ← unified Claude / Gemini caller  ← PROVIDER SWITCH HERE
-├── config.py         ← API keys, flag patterns, timeouts  ← FLAG FORMAT HERE
-├── requirements.txt  ← pip deps
-├── modules/
-│   ├── crypto.py     ← encodings, Caesar/Vigenere/XOR/RSA/Morse/...
-│   ├── forensics.py  ← file analysis, stego, PCAP, binwalk, ...
-│   └── web.py        ← SQLi, LFI, SSTI, SSRF, JWT, dir fuzz, ...
-├── tools/
-│   ├── flag.py       ← flag extraction + scoring
-│   └── runner.py     ← subprocess wrapper
-└── challenges/       ← drop challenge files here
-```
+Challenge descriptions, recent action history, and tool output are sent to the configured external model provider. Use a disposable lab environment and avoid supplying private files or credentials as challenge material.
 
----
+## Current validation and limitations
 
-## 6. Tool coverage
+- The maintainer has manually tried challenges and verified accepted flags. A reproducible benchmark with challenge identifiers, failed attempts, and provider settings has not yet been published.
+- A regex match or model-provided flag is only a candidate. The agent does not confirm acceptance with the challenge platform; CLI exit code zero is not proof of a solve.
+- Tool names are checked against a registry, but arguments do not have a comprehensive schema-validation layer.
+- Avoiding repeated tool calls is requested in the prompt, rather than enforced by a dedicated loop guard.
+- Optional CLI dependencies and provider/model availability affect which paths work.
+- This repository currently has no committed automated test suite.
 
-| Category     | What's covered |
-|--------------|----------------|
-| **Crypto**   | Base64/32/85/hex/binary/decimal, ROT13, Caesar brute, Vigenere + Kasiski keylen, Atbash, XOR single+multi brute, RSA small-e / Wiener / FactorDB, Substitution freq analysis, Morse, Rail fence, Bacon |
-| **Forensics**| File type/magic, strings, hexdump, EXIF metadata, binwalk scan+extract, PNG chunk parser, LSB stego, zsteg, steghide, bit-plane extract, WAV LSB, spectrogram, PCAP HTTP+strings, ZIP listing+crack |
-| **Web**      | Full recon, SQLi (error/union/blind/time), LFI + PHP wrappers, SSTI (Jinja2/Twig/FreeMarker RCE), SSRF (AWS/GCP meta), CMD injection, IP header bypass, dir fuzz, JWT decode/none-alg forge/secret crack, GraphQL introspect, .git leak |
+## Evaluation to add
+
+Record the commit, model, configuration, challenge source/category, candidate flag acceptance, tool-call count, elapsed time, and failure reason for every attempt. Include failed attempts and compare against the same model without tools before making performance claims.
+
+## Contribution
+
+Built with substantial AI assistance. Sai's work includes integration, debugging, and manual challenge testing.
