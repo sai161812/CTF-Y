@@ -1,6 +1,16 @@
-# 🚩 CTF Solver Agent
+# CTF-Y
 
-AI-powered end-to-end CTF solver. Claude or Gemini as the brain.
+Experimental CTF assistant using Claude or Gemini APIs to select Python tools for web, cryptography, and forensics challenges.
+
+The agent classifies a challenge, asks the model to choose a registered tool, executes it, and feeds the output into the next iteration. It is intended for CTF and explicitly authorized lab targets; this is an intended use boundary, not an enforced target allowlist.
+
+## Current limitations
+
+- No measured solve rate or checked-in challenge evaluation is available.
+- Tool outputs are checked for configured flag patterns, but a flag supplied by the model on completion is accepted without independent validation or challenge-server confirmation.
+- The system prompt asks the model not to repeat tool calls; the execution loop does not enforce deduplication.
+- Model output is parsed as JSON and tool names are checked against the registry, but tool arguments have no schema validation.
+- Requests depend on external model APIs. The web module disables TLS certificate verification for challenge requests.
 
 ---
 
@@ -114,10 +124,12 @@ ctf-agent/
 
 ---
 
-## 6. Tool coverage
+## 6. Implemented tools
+
+These are implemented routines, not measured solve rates or independently verified vulnerability coverage.
 
 | Category     | What's covered |
 |--------------|----------------|
 | **Crypto**   | Base64/32/85/hex/binary/decimal, ROT13, Caesar brute, Vigenere + Kasiski keylen, Atbash, XOR single+multi brute, RSA small-e / Wiener / FactorDB, Substitution freq analysis, Morse, Rail fence, Bacon |
 | **Forensics**| File type/magic, strings, hexdump, EXIF metadata, binwalk scan+extract, PNG chunk parser, LSB stego, zsteg, steghide, bit-plane extract, WAV LSB, spectrogram, PCAP HTTP+strings, ZIP listing+crack |
-| **Web**      | Full recon, SQLi (error/union/blind/time), LFI + PHP wrappers, SSTI (Jinja2/Twig/FreeMarker RCE), SSRF (AWS/GCP meta), CMD injection, IP header bypass, dir fuzz, JWT decode/none-alg forge/secret crack, GraphQL introspect, .git leak |
+| **Web**      | HTTP recon, SQLi (error/union/blind/time), LFI + PHP wrappers, SSTI (Jinja2/Twig/FreeMarker RCE), SSRF (AWS/GCP meta), CMD injection, IP header bypass, dir fuzz, JWT decode/none-alg forge/secret crack, GraphQL introspect, .git leak |
