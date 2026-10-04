@@ -43,7 +43,7 @@ export GEMINI_API_KEY="AIza..."
 You can also hardcode the choice in `config.py`:
 ```python
 PROVIDER      = "gemini"          # "anthropic" | "gemini"
-GEMINI_MODEL  = "gemini-1.5-pro"  # or "gemini-1.5-flash" for speed
+GEMINI_MODEL  = "gemini-2.0-flash"  # current value in config.py
 ```
 
 ---
@@ -100,6 +100,20 @@ result = solve(
 )
 print(result["flag"])
 ```
+
+For file challenges, the Python API accepts `files=["challenge.png"]`; `--file` is the CLI option. The CLI exits with status `0` when a flag is returned and `1` otherwise. A returned flag still needs confirmation against the challenge server.
+
+### Diagnose a failed run
+
+| Symptom | Check |
+|---|---|
+| Missing API key | Set the key for the selected `CTF_PROVIDER`; `config.py` also loads `.env`. |
+| Provider rejects the model | Check the model constant in `config.py` against models available to your provider account. |
+| `Tool not found` | Install the external CLI used by that action; Python dependencies do not include those executables. |
+| `Timed out after ...s` | Inspect the chosen action and `TIMEOUT_CMD`; HTTP requests use the separate `TIMEOUT_HTTP`. |
+| No flag after the loop | Inspect the printed steps and `MAX_STEPS` (25 by default); reaching the cap is not proof the challenge is unsolvable. |
+
+The forensics setup and tool-availability probe use Linux commands (`apt`, `which`). Use a Linux environment or WSL for that workflow; native Windows parity is not established.
 
 ---
 
